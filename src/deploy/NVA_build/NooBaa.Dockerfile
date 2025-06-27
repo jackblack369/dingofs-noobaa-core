@@ -1,5 +1,8 @@
 ARG CENTOS_VER=9
-FROM noobaa-base AS server_builder
+FROM noobaa-base:dingofs AS server_builder
+
+ARG http_proxy=http://10.220.69.222:1088
+ARG https_proxy=http://10.220.69.222:1088
 
 RUN mkdir -p /noobaa_init_files
 

@@ -1,4 +1,8 @@
-FROM noobaa-builder AS noobaa-base
+#FROM noobaa-builder AS noobaa-base
+FROM quay.io/noobaa/noobaa-builder:master-20250623
+
+ARG http_proxy=http://10.220.69.222:1088
+ARG https_proxy=http://10.220.69.222:1088
 
 ######################################################################
 # Layers:

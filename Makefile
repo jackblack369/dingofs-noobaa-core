@@ -144,14 +144,16 @@ builder: assert-container-engine
 	@echo "##\033[1;32m Build image noobaa-builder done.\033[0m"
 .PHONY: builder
 
-base: builder
+#base: builder
+base:
 	@echo "\n##\033[1;32m Build image noobaa-base ...\033[0m"
 	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) --build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) --build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) -f src/deploy/NVA_build/Base.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-base . $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa-base $(NOOBAA_BASE_TAG)
 	@echo "##\033[1;32m Build image noobaa-base done.\033[0m"
 .PHONY: base
 
-noobaa: base
+#noobaa: base
+noobaa: 
 	@echo "\n##\033[1;32m Build image noobaa ...\033[0m"
 	@echo "$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG)"
 	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) --build-arg CENTOS_VER=$(CENTOS_VER) --build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) --build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) -f src/deploy/NVA_build/NooBaa.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
