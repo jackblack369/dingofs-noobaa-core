@@ -2701,7 +2701,7 @@ class NamespaceFS {
 
     async _load_bucket(params, fs_context) {
         try {
-            await nb_native().fs.stat(fs_context, this.bucket_path);
+            await nb_native().fs.stat(fs_context, this.bucket_path, {use_lstat: true});
         } catch (err) {
             dbg.warn('_load_bucket failed, on bucket_path', this.bucket_path, 'got error', err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.BUCKET);

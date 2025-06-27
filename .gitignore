@@ -32,3 +32,7 @@ heapdump-*
 
 # custom ignored files - add .IGNORE to the file or dir name to un-git it.
 *.IGNORE 
+
+# built from C++ code
+*.node
+
