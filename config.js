@@ -919,6 +919,14 @@ config.NSFS_GLACIER_DMAPI_PMIG_DAYS = config.S3_RESTORE_REQUEST_MAX_DAYS;
 config.NSFS_STATFS_CACHE_SIZE = 10000;
 config.NSFS_STATFS_CACHE_EXPIRY_MS = 1 * 1000;
 
+// NSFS_XATTR_IGNORE_ERRORS controls whether NooBaa should ignore filesystem
+// extended attribute (xattr) errors and continue operations. This is useful
+// for filesystems that don't support xattr (like some distributed filesystems).
+// When enabled, NooBaa will log warnings but continue operations when xattr
+// operations fail with ENODATA, ENOTSUP, or EOPNOTSUPP errors.
+// Default is true for better compatibility with various filesystems.
+config.NSFS_XATTR_IGNORE_ERRORS = process.env.NSFS_XATTR_IGNORE_ERRORS !== 'false';
+
 // NSFS_LOW_FREE_SPACE_CHECK_ENABLED if set to true will use the below mentioned
 // thresholds to determine if the writes should be denied even
 // before we hit ENOSPC more filesystem.

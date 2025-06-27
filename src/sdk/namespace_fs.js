@@ -1277,7 +1277,7 @@ class NamespaceFS {
             //filed to put object
             new NoobaaEvent(NoobaaEvent.OBJECT_UPLOAD_FAILED).create_event(params.key,
                 {bucket_path: this.bucket_path, object_name: params.key}, err);
-            dbg.warn('NamespaceFS: upload_object buffer pool cleanup error', err);
+            dbg.warn('NamespaceFS: upload_object failed', err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         } finally {
             try {
@@ -1436,7 +1436,8 @@ class NamespaceFS {
             }
         }
         if (fs_xattr && !is_disabled_dir_content && should_replace_xattr) {
-            await target_file.replacexattr(fs_context, fs_xattr);
+            // await target_file.replacexattr(fs_context, fs_xattr);
+            await this._safe_replace_xattr(target_file, fs_context, fs_xattr, file_path || upload_path);
         }
         // fsync
         if (config.NSFS_TRIGGER_FSYNC) await target_file.fsync(fs_context);
@@ -1653,6 +1654,35 @@ class NamespaceFS {
         } catch (e) {
             dbg.log2('NamespaceFS: _is_same_inode got an error', e);
             // If we fail for any reason, we want to return undefined. so doing nothing in this catch.
+        }
+    }
+
+    /**
+     * Safely replace extended attributes on a file, handling filesystems that don't support xattr
+     * @param {nb.NativeFile} file - The file to set xattr on
+     * @param {nb.NativeFSContext} fs_context - The filesystem context
+     * @param {Object} fs_xattr - The extended attributes to set
+     * @param {string} file_path - The file path for logging
+     * @returns {Promise<boolean>} - Returns true if xattr was set successfully, false if skipped due to unsupported filesystem
+     */
+    async _safe_replace_xattr(file, fs_context, fs_xattr, file_path) {
+        try {
+            await file.replacexattr(fs_context, fs_xattr);
+            return true;
+        } catch (err) {
+            if (err.code === 'ENODATA' || err.code === 'ENOTSUP' || err.code === 'EOPNOTSUPP') {
+                if (config.NSFS_XATTR_IGNORE_ERRORS) {
+                    dbg.warn('NamespaceFS._safe_replace_xattr: Extended attributes not supported on filesystem, skipping xattr setting', 
+                        { file_path, error: err.message, code: err.code });
+                    return false;
+                } else {
+                    dbg.error('NamespaceFS._safe_replace_xattr: Extended attributes not supported on filesystem. Set NSFS_XATTR_IGNORE_ERRORS=true to continue.', 
+                        { file_path, error: err.message, code: err.code });
+                    throw err;
+                }
+            } else {
+                throw err;
+            }
         }
     }
 
@@ -3445,7 +3475,8 @@ class NamespaceFS {
                 const file_path = this._get_version_path(params.key, delete_marker_version_id, is_dir);
 
                 const fs_xattr = this._assign_versions_to_fs_xattr(stat, undefined, true);
-                if (fs_xattr) await upload_params.target_file.replacexattr(fs_context, fs_xattr);
+                //if (fs_xattr) await upload_params.target_file.replacexattr(fs_context, fs_xattr);
+                if (fs_xattr) await this._safe_replace_xattr(upload_params.target_file, fs_context, fs_xattr, file_path);
                 // create .version in case we don't have it yet
                 await native_fs_utils._make_path_dirs(file_path, fs_context);
                 await nb_native().fs.rename(fs_context, upload_params.upload_path, file_path);
