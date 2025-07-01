@@ -1,6 +1,6 @@
-BUILDER_TAG?="noobaa-builder"
+BUILDER_TAG?="noobaa-builder:dingofs"
 NOOBAA_BASE_TAG?="noobaa-base:dingofs"
-NOOBAA_TAG?="noobaa-core:dingofs"
+NOOBAA_TAG?="noobaa-core:dingofs-v1.0"
 TESTER_TAG?="noobaa-tester"
 NOOBAA_RPM_TAG?="noobaa-rpm-build"
 POSTGRES_IMAGE?="centos/postgresql-12-centos7"

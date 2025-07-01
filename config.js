@@ -811,8 +811,14 @@ config.NSFS_WARN_THRESHOLD_MS = 100;
 
 config.NSFS_CALCULATE_MD5 = false;
 config.NSFS_TRIGGER_FSYNC = true;
-config.NSFS_CHECK_BUCKET_BOUNDARIES = true;
+// NSFS_CHECK_BUCKET_BOUNDARIES controls whether NooBaa validates that file paths
+// are within bucket boundaries using realpath() system call. This can be disabled
+// for distributed filesystems that don't fully support realpath() (e.g., DingoFS).
+config.NSFS_CHECK_BUCKET_BOUNDARIES = process.env.NSFS_CHECK_BUCKET_BOUNDARIES !== 'false';
 config.NSFS_REMOVE_PARTS_ON_COMPLETE = true;
+
+// set stat() USE_LSTAT defaults to true
+config.NSFS_USE_LSTAT = process.env.NSFS_DISABLE_LSTAT !== 'true';
 
 config.NSFS_BUF_POOL_WARNING_TIMEOUT = 2 * 60 * 1000;
 config.NSFS_SEM_WARNING_TIMEOUT = 10 * 60 * 1000;

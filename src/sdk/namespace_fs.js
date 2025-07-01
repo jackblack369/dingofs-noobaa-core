@@ -181,7 +181,7 @@ async function _rename_null_version(old_versions, fs_context, version_path) {
     for (const old_version of old_versions) {
         if (_is_version_null_version(old_version.name)) {
             try {
-                const stat = await nb_native().fs.stat(fs_context, path.join(version_path, old_version.name));
+                const stat = await nb_native().fs.stat(fs_context, path.join(version_path, old_version.name), { use_lstat: config.NSFS_USE_LSTAT });
                 const mtime_ino = _get_version_id_by_stat(stat);
                 const original_name = _get_filename(old_version.name);
                 const version_with_mtime_ino = original_name + '_' + mtime_ino;
@@ -212,7 +212,7 @@ async function is_directory_or_symlink_to_directory(stat, fs_context, entry_path
     try {
         let r = native_fs_utils.isDirectory(stat);
         if (!r && is_symbolic_link(stat)) {
-            const targetStat = await nb_native().fs.stat(fs_context, entry_path);
+            const targetStat = await nb_native().fs.stat(fs_context, entry_path, { use_lstat: config.NSFS_USE_LSTAT });
             if (!targetStat) throw new Error('is_directory_or_symlink_to_directory: targetStat is empty');
             r = native_fs_utils.isDirectory(targetStat);
         }
@@ -342,7 +342,7 @@ const dir_cache = new LRUCache({
     make_key: ({ dir_path }) => dir_path,
     load: async ({ dir_path, fs_context }) => {
         const time = Date.now();
-        const stat = await nb_native().fs.stat(fs_context, dir_path);
+        const stat = await nb_native().fs.stat(fs_context, dir_path, { use_lstat: config.NSFS_USE_LSTAT });
         let sorted_entries;
         let usage = config.NSFS_DIR_CACHE_MIN_DIR_SIZE;
         if (stat.size <= config.NSFS_DIR_CACHE_MAX_DIR_SIZE) {
@@ -355,7 +355,7 @@ const dir_cache = new LRUCache({
         return { time, stat, sorted_entries, usage };
     },
     validate: async ({ stat }, { dir_path, fs_context }) => {
-        const new_stat = await nb_native().fs.stat(fs_context, dir_path);
+        const new_stat = await nb_native().fs.stat(fs_context, dir_path, { use_lstat: config.NSFS_USE_LSTAT });
         return (new_stat.ino === stat.ino && new_stat.mtimeNsBigint === stat.mtimeNsBigint);
     },
     item_usage: ({ usage }, dir_path) => usage,
@@ -377,13 +377,13 @@ const versions_dir_cache = new LRUCache({
     make_key: ({ dir_path }) => dir_path,
     load: async ({ dir_path, fs_context }) => {
         const time = Date.now();
-        const stat = await nb_native().fs.stat(fs_context, dir_path);
+        const stat = await nb_native().fs.stat(fs_context, dir_path, { use_lstat: config.NSFS_USE_LSTAT });
         const version_path = dir_path + "/" + HIDDEN_VERSIONS_PATH;
         let ver_dir_stat_size;
         let is_version_path_exists = false;
         let ver_dir_stat;
         try {
-            ver_dir_stat = await nb_native().fs.stat(fs_context, version_path);
+            ver_dir_stat = await nb_native().fs.stat(fs_context, version_path, { use_lstat: config.NSFS_USE_LSTAT });
             ver_dir_stat_size = ver_dir_stat.size;
             is_version_path_exists = true;
         } catch (err) {
@@ -431,11 +431,11 @@ const versions_dir_cache = new LRUCache({
         return { time, stat, ver_dir_stat, sorted_entries, usage };
     },
     validate: async ({ stat, ver_dir_stat }, { dir_path, fs_context }) => {
-        const new_stat = await nb_native().fs.stat(fs_context, dir_path);
+        const new_stat = await nb_native().fs.stat(fs_context, dir_path, { use_lstat: config.NSFS_USE_LSTAT });
         const versions_dir_path = path.normalize(path.join(dir_path, '/', HIDDEN_VERSIONS_PATH));
         let new_versions_stat;
         try {
-            new_versions_stat = await nb_native().fs.stat(fs_context, versions_dir_path);
+            new_versions_stat = await nb_native().fs.stat(fs_context, versions_dir_path, { use_lstat: config.NSFS_USE_LSTAT });
         } catch (err) {
             if (err.code === 'ENOENT') {
                 dbg.log0('NamespaceFS: Version dir not found, ', versions_dir_path);
@@ -980,7 +980,7 @@ class NamespaceFS {
                     file_path = await this._find_version_path(fs_context, params, true);
                     await this._check_path_in_bucket_boundaries(fs_context, file_path);
                     await this._load_bucket(params, fs_context);
-                    stat = await nb_native().fs.stat(fs_context, file_path);
+                    stat = await nb_native().fs.stat(fs_context, file_path, { use_lstat: config.NSFS_USE_LSTAT });
                     isDir = native_fs_utils.isDirectory(stat);
                     if (isDir) {
                         if (!stat.xattr?.[XATTR_DIR_CONTENT] || !params.key.endsWith('/')) {
@@ -988,7 +988,7 @@ class NamespaceFS {
                         } else if (stat.xattr?.[XATTR_DIR_CONTENT] !== '0') {
                             // find dir object content file path  and return its stat + xattr of its parent directory
                             const dir_content_path = await this._find_version_path(fs_context, params);
-                            const dir_content_path_stat = await nb_native().fs.stat(fs_context, dir_content_path);
+                            const dir_content_path_stat = await nb_native().fs.stat(fs_context, dir_content_path, { use_lstat: config.NSFS_USE_LSTAT });
                             const xattr = stat.xattr;
                             stat = { ...dir_content_path_stat, xattr };
                         }
@@ -1024,7 +1024,7 @@ class NamespaceFS {
         if (is_dir_content) {
             try {
                 const md_path = await this._get_file_md_path(fs_context, params);
-                const dir_stat = await nb_native().fs.stat(fs_context, md_path);
+                const dir_stat = await nb_native().fs.stat(fs_context, md_path, { use_lstat: config.NSFS_USE_LSTAT });
                 if (dir_stat && dir_stat.xattr[XATTR_DIR_CONTENT] === '0') return true;
             } catch (err) {
                 //failed to get object
@@ -1364,7 +1364,7 @@ class NamespaceFS {
     async _check_copy_storage_class(fs_context, params) {
         if (params.copy_source) {
             const src_file_path = await this._find_version_path(fs_context, params.copy_source);
-            const stat = await nb_native().fs.stat(fs_context, src_file_path);
+            const stat = await nb_native().fs.stat(fs_context, src_file_path, { use_lstat: config.NSFS_USE_LSTAT });
             const src_storage_class = Glacier.storage_class_from_xattr(stat.xattr);
             const src_restore_status = Glacier.get_restore_status(stat.xattr, new Date(), src_file_path);
 
@@ -1471,7 +1471,7 @@ class NamespaceFS {
         // when .folder exist and it's no upload flow - .folder should be deleted if it exists
         await native_fs_utils.unlink_ignore_enoent(fs_context, file_path);
         const dir_path = this._get_directory_path(params);
-        const stat = await nb_native().fs.stat(fs_context, dir_path);
+        const stat = await nb_native().fs.stat(fs_context, dir_path, { use_lstat: config.NSFS_USE_LSTAT });
         const upload_info = this._get_upload_info(stat, fs_xattr[XATTR_VERSION_ID]);
         return upload_info;
     }
@@ -1640,10 +1640,10 @@ class NamespaceFS {
     async _is_same_inode(fs_context, source_file_path, file_path) {
         try {
             dbg.log2('NamespaceFS: checking _is_same_inode');
-            const file_path_stat = await nb_native().fs.stat(fs_context, file_path);
+            const file_path_stat = await nb_native().fs.stat(fs_context, file_path, { use_lstat: config.NSFS_USE_LSTAT });
             const file_path_inode = file_path_stat.ino.toString();
             const file_path_device = file_path_stat.dev.toString();
-            const source_file_stat = await nb_native().fs.stat(fs_context, source_file_path, { skip_user_xattr: true });
+            const source_file_stat = await nb_native().fs.stat(fs_context, source_file_path, { use_lstat: config.NSFS_USE_LSTAT, skip_user_xattr: true });
             const source_file_inode = source_file_stat.ino.toString();
             const source_file_device = source_file_stat.dev.toString();
             dbg.log2('NamespaceFS: file_path_inode:', file_path_inode, 'source_file_inode:', source_file_inode,
@@ -1761,7 +1761,7 @@ class NamespaceFS {
                     return undefined;
                 }
             }
-            const stat = await nb_native().fs.stat(fs_context, create_path);
+            const stat = await nb_native().fs.stat(fs_context, create_path, { use_lstat: config.NSFS_USE_LSTAT });
             return this._get_mpu_info(create_params_parsed, stat);
         });
         return {
@@ -1890,7 +1890,7 @@ class NamespaceFS {
                 .map(async e => {
                     const num = Number(e.name.slice('part-'.length));
                     const part_path = path.join(params.mpu_path, e.name);
-                    const stat = await nb_native().fs.stat(fs_context, part_path);
+                    const stat = await nb_native().fs.stat(fs_context, part_path, { use_lstat: config.NSFS_USE_LSTAT });
                     return {
                         num,
                         size: stat.size,
@@ -1948,7 +1948,7 @@ class NamespaceFS {
             let total_size = 0;
             for (const { num, etag } of multiparts) {
                 const md_part_path = this._get_part_md_path({ ...params, num });
-                const md_part_stat = await nb_native().fs.stat(fs_context, md_part_path);
+                const md_part_stat = await nb_native().fs.stat(fs_context, md_part_path, { use_lstat: config.NSFS_USE_LSTAT });
                 const part_size = Number(md_part_stat.xattr[XATTR_PART_SIZE]);
                 const part_offset = Number(md_part_stat.xattr[XATTR_PART_OFFSET]);
                 if (etag !== this._get_etag(md_part_stat)) {
@@ -2731,7 +2731,8 @@ class NamespaceFS {
 
     async _load_bucket(params, fs_context) {
         try {
-            await nb_native().fs.stat(fs_context, this.bucket_path, { use_lstat : true });
+            dbg.log0('config.NSFS_USE_LSTAT:', config.NSFS_USE_LSTAT);
+            await nb_native().fs.stat(fs_context, this.bucket_path, { use_lstat: config.NSFS_USE_LSTAT });
         } catch (err) {
             dbg.warn('_load_bucket failed, on bucket_path', this.bucket_path, 'got error', err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.BUCKET);
@@ -2767,7 +2768,7 @@ class NamespaceFS {
         await this._load_bucket(params, fs_context);
         params.mpu_path = this._mpu_path(params);
         try {
-            await nb_native().fs.stat(fs_context, params.mpu_path);
+            await nb_native().fs.stat(fs_context, params.mpu_path, { use_lstat: config.NSFS_USE_LSTAT });
         } catch (err) {
             // TOOD: Error handling
             if (err.code === 'ENOENT') err.rpc_code = 'NO_SUCH_UPLOAD';
@@ -2794,7 +2795,7 @@ class NamespaceFS {
             let should_check_dir_path_is_content_dir = !deleted_file_is_dir && !deleted_file_is_dir_object;
             while (dir_path !== this.bucket_path) {
                 if (should_check_dir_path_is_content_dir) {
-                    const dir_stat = await nb_native().fs.stat(fs_context, dir_path);
+                    const dir_stat = await nb_native().fs.stat(fs_context, dir_path, { use_lstat: config.NSFS_USE_LSTAT });
                     const file_is_disabled_dir_content = dir_stat.xattr && dir_stat.xattr[XATTR_DIR_CONTENT] !== undefined;
                     if (file_is_disabled_dir_content) break;
                 }
@@ -3037,7 +3038,7 @@ class NamespaceFS {
      */
     async _get_version_info(fs_context, version_path, file = undefined) {
         try {
-            const stat = file ? await file.stat(fs_context) : await nb_native().fs.stat(fs_context, version_path);
+            const stat = file ? await file.stat(fs_context) : await nb_native().fs.stat(fs_context, version_path, { use_lstat: config.NSFS_USE_LSTAT });
             dbg.log1('NamespaceFS._get_version_info stat ', stat, version_path, file);
 
             const version_id_str = this._get_version_id_by_xattr(stat);
@@ -3088,7 +3089,7 @@ class NamespaceFS {
     async _is_key_dir_path(fs_context, key) {
         try {
             const key_path = path.normalize(path.join(this.bucket_path, key));
-            const key_stat = await nb_native().fs.stat(fs_context, key_path, { skip_user_xattr: true });
+            const key_stat = await nb_native().fs.stat(fs_context, key_path, { use_lstat: config.NSFS_USE_LSTAT, skip_user_xattr: true });
             const is_dir = native_fs_utils.isDirectory(key_stat);
             return is_dir;
         } catch (err) {
